@@ -7,25 +7,37 @@ biocLite("simpleaffy")
 biocLite("GEOquery")
 biocLite("affy")
 
+biocLite("org.Hs.eg.db")
+
 library(simpleaffy)
 library(GEOquery)
 library(affy)
+library(org.Hs.eg.db)
 
-wd <- "~/BMBFinalProject"
+wd <- "~/Documents/Bioinformatics-MedBio/Final_Project/FinalProjectCode/BMBFinalProject" # for SJ
+
+# ANOVA function:
+#get differentially expressed genes with ANOVA (function copied from Manny's SeedDevelopment lecture)
+doAnova<-function(expvalues, expgroups) {
+    anova.results = anova(lm(as.numeric(expvalues)
+                             ~ as.factor(expgroups)))$"Pr(>F)"[1]
+    anova.results
+}
+
 
 # Getting GSE6575, "Gene expression in blood of children with autism spectrum disorder"
 
 #download.file('http://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE6575&format=file', 'gse6575.tar', mode = 'wb')
 untar('gse6575.tar', exdir = 'gse6575') #odd error while downloading - check if files are corrupted?
 
-#get the whole normalized dataset
+#normalizing the data set
 setwd('gse6575')
 raw_6575 <- ReadAffy(compress = TRUE, verbose = TRUE)
 norm_6575 <- gcrma(raw_6575)
 exprs_6575 <- exprs(norm_6575)
 
 #get the experimental groups
-geo_6575 <- getGEO("GSE6575")
+geo_6575 <- getGEO("GSE6575", destdir=getwd())
 exprs_geo_6575 <- exprs(geo_6575[[1]])
 file_designations = colnames(exprs_geo_6575)
 design_6575 = vector(length=length(file_designations))
@@ -34,6 +46,8 @@ for (i in 1:length(file_designations)) {
   design_6575[i] = Meta(gsm)$characteristics_ch1
 }
 
+# Perform ANOVA
+anova_6575 <- apply(exprs_6575, 1, doAnova, design_6575)
 
 #########################################
 
@@ -81,6 +95,19 @@ length(test.bfn) # approximately 149
 genes.fdr <- names(test.fdr)
 genes.bfn <- names(test.bfn)
 # what are the gene_ids?  Can we convert them to genbank symbols? - SJ
+gpl1708 <- read.delim("~/Documents/Bioinformatics-MedBio/Final_Project/FinalProjectCode/BMBFinalProject/GPL1708-20418.txt", row.names=1, comment.char="#")
+gpl1708[gpl1708$GENE %in% as.integer(genes.bfn),]
+
+in.gpl <- genes.bfn[as.integer(genes.bfn) %in% gpl1708$GENE]
+genes.final <- in.gpl[!is.na(in.gpl)]
+
+# GO term enrichment
+final.table <- gpl1708[gpl1708$GENE %in% genes.final, c("GENE","GENE_SYMBOL", "GO_ID")]
+p.vals.final <- test.bfn[genes.final]
+
+org.Hs.eg.db
+
+
 
 # get log fold change using MKs getRange function - SJ
 getRange <- function(expvalues, expgroups) {
@@ -96,22 +123,27 @@ diffexp_gse5634 = logexprs_gse5634[range.results > 5 & anova.results.fdr
 
 #####
 # get gse25507
+if(!file.exists("gse225507.tar"))
 download.file("http://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE25507&format=file", destfile="gse25507.tar")
 untar("gse25507.tar", exdir="gse25507")
 
 setwd("gse25507")
 
 #begin processing data
-gse25507.raw <- ReadAffy(compress=TRUE, verbose=TRUE)
-gse25507.norm <- gcrma(gse25507.raw)
-gse25507.exprs <- exprs(gse25507.norm)
+setwd(paste0(wd,"/gse25507"))
+raw_gse25507 <- ReadAffy(compress=TRUE, verbose=TRUE)
+norm_gse25507 <- gcrma(gse25507.raw)
+exprs_gse25507 <- exprs(gse25507.norm)
 
 
-geo25507 <- getGEO("GSE25507")
-geo25507.exprs <- exprs(geo25507[[1]])
+geo25507 <- getGEO("GSE25507", destdir=getwd())
+exprs_geo25507<- exprs(geo25507[[1]])
 file_designations.25507 = colnames(gse25507.exprs)
-design.25507 = vector(length=length(file_designations.25507))
+design_25507 = vector(length=length(file_designations.25507))
 for (i in 1:length(file_designations.25507)) {
-    gsm = getGEO(GEO=strsplit(file_designations.25507[i], split="[.]")[1])
+    gsm = getGEO(GEO=strsplit(file_designations.25507[i], split="[.]")[[1]][1])
     design.25507[i] = Meta(gsm)$characteristics_ch1
 }
+
+# Perform ANOVA
+anova_25507 <- apply(exprs_25507, 1, doAnova, design_25507)
