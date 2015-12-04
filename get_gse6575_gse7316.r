@@ -141,8 +141,10 @@ exprs_geo25507<- exprs(geo25507[[1]])
 file_designations.25507 = colnames(gse25507.exprs)
 design_25507 = vector(length=length(file_designations.25507))
 for (i in 1:length(file_designations.25507)) {
-    gsm = getGEO(GEO=strsplit(file_designations.25507[i], split="[.]")[[1]][1])
-    design.25507[i] = Meta(gsm)$characteristics_ch1
+    filename = strsplit(file_designations.25507[i], split="[.]")[[1]][1]
+    print(filename)
+    gsm = getGEO(GEO=filename)
+    design.25507[i] = paste(Meta(gsm)$characteristics_ch1, collapse=" ")
 }
 
 # Perform ANOVA
