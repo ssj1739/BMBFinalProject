@@ -56,19 +56,19 @@ files_6575 <- list.files('gse6575', pattern="CEL.gz", full.names=T)
 raw_6575 <- ReadAffy(filenames=files_6575, compress = TRUE, verbose = TRUE)
 norm_6575 <- gcrma(raw_6575)
 exprs_6575 <- exprs(norm_6575)
-log.exprs_6575 <- log2(exprs_6575)
+log_exprs_6575 <- log2(exprs_6575)
 
 #get the experimental groups
 geo_6575 <- getGEO("GSE6575", destdir=getwd())
 exprs_geo_6575 <- exprs(geo_6575[[1]])
 file_designations_6575 = colnames(exprs_geo_6575)
-design_6575 = vector(length=length(file_designations))
+design_6575 = character(length=length(file_designations))
 for (i in 1:length(file_designations)) {
   gsm = getGEO(file_designations[i])
   design_6575[i] = Meta(gsm)$characteristics_ch1
 }
-# made a new design splitting samples into 3 categories
-simple_design_6575 = c(rep("Autism", 35), rep("Control", 12), rep("Mental retardation",9))
+covdesc_6575 <- cbind(file_designations_6575, design_6575)
+colnames(covdesc_6575) <- c("", "treatment")
 
 # Perform ANOVA
 # full design - all groups accounted for in anova
@@ -76,25 +76,19 @@ anova_6575 <- apply(log_exprs_6575, 1, doAnova, design_6575)
 fdr_6575 <- p.adjust(anova_6575, method="BH")
 bfn_6575 <- p.adjust(anova_6575, method="bonferroni")
 
-# simple design - only looking for 3 categories
-anova_simple_6575 <- apply(log_exprs_6575, 1, doAnova, simple_design_6575)
-fdr_simple_6575 <- p.adjust(anova_simple_6575, method="BH")
-bfn_simple_6575 <- p.adjust(anova_simple_6575, method="bonferroni")
-
 # determining significance with log fold change and p-value cutoffs/corrections
 range_6575 <- apply(log_exprs_6575, 1, getRange, design_6575) # full
-range_simple_6575 <- apply(log_exprs_6575, 1, getRange, simple_design_6575) # simple
 
 # filter for log fold change and p-value cutoff.  ###!!! NOTE: may want to change cutoff, as logfold change cutoff is not met in full design
-diffexp_6575 = log_exprs_6575[range_6575 > 1 & fdr_6575 < 0.05,]
+diffexp_6575 = log_exprs_6575[fdr_6575 < 0.001 & range_6575 > 1,]
 sig_genes_6575 <- rownames(diffexp_6575)
-
-diffexp_simple_6575 <- log_exprs_6575[fdr_simple_6575 < 0.05,]
+length(sig_genes_6575)
 
 # Annotate genes and perform GO enrichment
 universe_6575 <- rownames(exprs_6575)
 universe_eid_6575 <- unlist(mget(universe, hgu133plus2ENTREZID))
 sig_genes_eid_6575 <- unlist(mget(sig_genes_6575, hgu133plus2ENTREZID))
+sig_genes_names <- unlist(mget(sig_genes_6575, hgu133plus2GENENAME))
 
 params_6575=new("GOHyperGParams", geneIds=sig_genes_eid_6575,
            universeGeneIds=universe_eid_6575, annotation="hgu133plus2", ontology="BP",
@@ -112,6 +106,12 @@ summary(overRepresented_6575)
 # So these are not 'raw' files. Let's skip getting the data / normalizing and just jump ahead with GEOquery.
 
 # found raw files as text
+if(!dir.exists('gse7329')){
+    download.file("http://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE7329&format=file", "gse7329.tar", mode = 'wb')
+    untar('gse7329.tar', exdir = 'gse7329') #odd error while downloading - check if files are corrupted?
+}
+files_7329 <- as.character(list.files('gse7329', pattern="txt.gz", full.names=T))
+ReadAffy(files_7329, compress=T, verbose=T)
 
 geo_7329 <- getGEO('GSE7329') # data might already be in log format, but check with GEO database annotations - SJ
 exprs_geo_7329 <- exprs(geo_7329[[1]])
@@ -124,6 +124,7 @@ for (i in 1:length(file_designations_2)) {
   gsm = getGEO(file_designations_2[i])
   design_7329[i] = strsplit(Meta(gsm)$title, split=" ")[[1]][1]
 }
+
 
 #get differentially expressed genes with ANOVA (function copied from Manny's SeedDevelopment lecture)
 doAnova<-function(expvalues, expgroups) {
@@ -176,11 +177,12 @@ diffexp_gse5634 = logexprs_gse5634[range.results > 5 & anova.results.fdr
                                    < 0.05,]
 
 
-#####
+##################
 # get gse25507
-if(!file.exists("gse225507.tar"))
-download.file("http://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE25507&format=file", destfile="gse25507.tar")
-untar("gse25507.tar", exdir="gse25507")
+if(!file.exists("gse25507.tar")){
+    download.file("http://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE25507&format=file", destfile="gse25507.tar")
+    untar("gse25507.tar", exdir="gse25507")
+}
 
 setwd("gse25507")
 
