@@ -144,8 +144,12 @@ for (i in 1:length(file_designations.25507)) {
     filename = strsplit(file_designations.25507[i], split="[.]")[[1]][1]
     print(filename)
     gsm = getGEO(GEO=filename)
-    design.25507[i] = paste(Meta(gsm)$characteristics_ch1, collapse=" ")
+    design_25507[i] = paste(Meta(gsm)$characteristics_ch1, collapse=" ")
 }
 
 # Perform ANOVA
-anova_25507 <- apply(exprs_25507, 1, doAnova, design_25507)
+anova_gse25507 <- apply(exprs_gse25507, 1, doAnova, design_25507)
+
+# Identify significant genes, and also get log fold change
+
+
