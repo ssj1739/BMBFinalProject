@@ -18,7 +18,6 @@ for(pkg in packages){
     require(pkg, character.only=T)
 }
 
-
 # set project directory
 wd <- "~/Documents/Bioinformatics-MedBio/Final_Project/FinalProjectCode/BMBFinalProject" # for SJ
 # go to project directory (wd)
