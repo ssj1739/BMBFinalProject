@@ -1,66 +1,121 @@
 # Final Project
-
+# Sidharth Jain, Warren Ersly, Aisha Dar
 source("http://bioconductor.org/biocLite.R")
 
 # load all packages
-biocLite("simpleaffy")
-biocLite("GEOquery")
-biocLite("affy")
+packages <- c("simpleaffy", 
+              "GEOquery", 
+              "affy",
+              "org.Hs.eg.db",
+              "GOstats",
+              "GO.db",
+              "hgu133plus2.db",
+              "cluster")
 
-biocLite("org.Hs.eg.db")
-
-library(simpleaffy)
-library(GEOquery)
-library(affy)
-library(org.Hs.eg.db)
-
-wd <- "~/Documents/Bioinformatics-MedBio/Final_Project/FinalProjectCode/BMBFinalProject" # for SJ
-
-# ANOVA function:
-#get differentially expressed genes with ANOVA (function copied from Manny's SeedDevelopment lecture)
-doAnova<-function(expvalues, expgroups) {
-    anova.results = anova(lm(as.numeric(expvalues)
-                             ~ as.factor(expgroups)))$"Pr(>F)"[1]
-    anova.results
+for(pkg in packages){
+    if(!pkg %in% installed.packages()[,1])
+        biocLite(pkg)
+    require(pkg, character.only=T)
 }
 
 
-# Getting GSE6575, "Gene expression in blood of children with autism spectrum disorder"
+# set project directory
+wd <- "~/Documents/Bioinformatics-MedBio/Final_Project/FinalProjectCode/BMBFinalProject" # for SJ
+# go to project directory (wd)
+setwd(wd)
 
-#download.file('http://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE6575&format=file', 'gse6575.tar', mode = 'wb')
-untar('gse6575.tar', exdir = 'gse6575') #odd error while downloading - check if files are corrupted?
+### FUNCTIONS ###
+
+# initialize ANOVA function:
+# get differentially expressed genes with ANOVA (function copied from Manny's SeedDevelopment lecture)
+doAnova<-function(expvalues, expgroups) {
+    anova.results = anova(lm(as.numeric(expvalues)
+                             ~ as.factor(expgroups)))$"Pr(>F)"[1]
+    return(anova.results)
+}
+
+# initialize getRange function (taken from Manny's SeedDevelopment lecture)
+getRange <- function(expvalues, expgroups) {
+    range.results = range(tapply(expvalues, expgroups, mean))
+    rangediff = range.results[2]-range.results[1]
+    browser()
+}
+
+#######################################
+### BEGIN ANALYSIS ###
+# GSE6575 #
+
+# Getting GSE6575, "Gene expression in blood of children with autism spectrum disorder"
+if(!dir.exists('gse6575')){
+    download.file('http://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE6575&format=file', 'gse6575.tar', mode = 'wb')
+    untar('gse6575.tar', exdir = 'gse6575') #odd error while downloading - check if files are corrupted?
+}
 
 #normalizing the data set
-setwd('gse6575')
-raw_6575 <- ReadAffy(compress = TRUE, verbose = TRUE)
+files_6575 <- list.files('gse6575', pattern="CEL.gz", full.names=T)
+raw_6575 <- ReadAffy(filenames=files_6575, compress = TRUE, verbose = TRUE)
 norm_6575 <- gcrma(raw_6575)
 exprs_6575 <- exprs(norm_6575)
+log.exprs_6575 <- log2(exprs_6575)
 
 #get the experimental groups
 geo_6575 <- getGEO("GSE6575", destdir=getwd())
 exprs_geo_6575 <- exprs(geo_6575[[1]])
-file_designations = colnames(exprs_geo_6575)
+file_designations_6575 = colnames(exprs_geo_6575)
 design_6575 = vector(length=length(file_designations))
 for (i in 1:length(file_designations)) {
   gsm = getGEO(file_designations[i])
   design_6575[i] = Meta(gsm)$characteristics_ch1
 }
+# made a new design splitting samples into 3 categories
+simple_design_6575 = c(rep("Autism", 35), rep("Control", 12), rep("Mental retardation",9))
 
 # Perform ANOVA
-anova_6575 <- apply(exprs_6575, 1, doAnova, design_6575)
+# full design - all groups accounted for in anova
+anova_6575 <- apply(log_exprs_6575, 1, doAnova, design_6575)
+fdr_6575 <- p.adjust(anova_6575, method="BH")
+bfn_6575 <- p.adjust(anova_6575, method="bonferroni")
+
+# simple design - only looking for 3 categories
+anova_simple_6575 <- apply(log_exprs_6575, 1, doAnova, simple_design_6575)
+fdr_simple_6575 <- p.adjust(anova_simple_6575, method="BH")
+bfn_simple_6575 <- p.adjust(anova_simple_6575, method="bonferroni")
+
+# determining significance with log fold change and p-value cutoffs/corrections
+range_6575 <- apply(log_exprs_6575, 1, getRange, design_6575) # full
+range_simple_6575 <- apply(log_exprs_6575, 1, getRange, simple_design_6575) # simple
+
+# filter for log fold change and p-value cutoff.  ###!!! NOTE: may want to change cutoff, as logfold change cutoff is not met in full design
+diffexp_6575 = log_exprs_6575[range_6575 > 1 & fdr_6575 < 0.05,]
+sig_genes_6575 <- rownames(diffexp_6575)
+
+diffexp_simple_6575 <- log_exprs_6575[fdr_simple_6575 < 0.05,]
+
+# Annotate genes and perform GO enrichment
+universe_6575 <- rownames(exprs_6575)
+universe_eid_6575 <- unlist(mget(universe, hgu133plus2ENTREZID))
+sig_genes_eid_6575 <- unlist(mget(sig_genes_6575, hgu133plus2ENTREZID))
+
+params_6575=new("GOHyperGParams", geneIds=sig_genes_eid_6575,
+           universeGeneIds=universe_eid_6575, annotation="hgu133plus2", ontology="BP",
+           pvalueCutoff=0.001, conditional=FALSE, testDirection="over")
+overRepresented_6575=hyperGTest(params)
+
+summary(overRepresented_6575)
 
 #########################################
+# GSE7329 #
 
 #getting GSE7329, "Gene expression profiles of lymphoblastoid cells (autism)"
 
 # it appears that when you dowload GSE7316_RAW.tar from GEO, you actually get a bunch of txt.gz files, which are already normalized. 
 # So these are not 'raw' files. Let's skip getting the data / normalizing and just jump ahead with GEOquery.
 
-#setwd(wd)
+# found raw files as text
 
 geo_7329 <- getGEO('GSE7329') # data might already be in log format, but check with GEO database annotations - SJ
 exprs_geo_7329 <- exprs(geo_7329[[1]])
-
+log_exprs_7329
 
 #get the experimental conditions for ANOVA?
 file_designations_2 = colnames(exprs_geo_7329)
@@ -78,8 +133,8 @@ doAnova<-function(expvalues, expgroups) {
 }
 
 anova_7329 <- apply(exprs_geo_7329, 1, doAnova, design_7329) #returns ~44,000 elements
-anova_7329.fdr = p.adjust(anova_7329, method="BH") # correct for multiple hypothesis testing (FDR)
-anova_7329.bfn = p.adjust(anova_7329, method="bonferroni")
+fdr_7329 = p.adjust(anova_7329, method="BH") # correct for multiple hypothesis testing (FDR)
+bfn_7329 = p.adjust(anova_7329, method="bonferroni")
 
 test <- which(anova_7329 < .05)
 length(test) # ~10,000 elements with signficant p-values, let's see if we can narrow this down somehow
