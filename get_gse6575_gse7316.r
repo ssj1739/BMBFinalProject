@@ -60,7 +60,7 @@ file_designations_6575 = colnames(exprs_geo_6575)
 design_6575 = character(length=length(file_designations))
 for (i in 1:length(file_designations)) {
   gsm = getGEO(file_designations[i])
-  design_6575[i] = Meta(gsm)$characteristics_ch1
+  design_6575[i] = strsplit(Meta(gsm)$characteristics_ch1, split=" ")[[1]][1]
 }
 
 # load and normalize data set
@@ -68,12 +68,14 @@ covdesc_6575 <- cbind(file_designations_6575, design_6575)
 colnames(covdesc_6575) <- c("", "treatment")
 write.table(x=covdesc_6575, file="covdesc_6575", sep="   ", row.names=F, quote=F)
 
-
 files_6575 <- list.files(pattern="CEL.gz")
 raw_6575 <- read.affy("covdesc_6575", verbose = TRUE)
 norm_6575 <- mas5(raw_6575)
 exprs_6575 <- exprs(norm_6575)
 log_exprs_6575 <- log2(exprs_6575)
+
+pair_6575 <- pairwise.comparison(norm_6575, group="treatment", members=c("autism", "control"), raw_6575)
+
 
 
 # Perform ANOVA
@@ -104,31 +106,31 @@ overRepresented_6575=hyperGTest(params)
 summary(overRepresented_6575)
 
 # clustering/create heat plot
-expmatrix_6575 <- exprs_gse6575[gene_list_6575[!is.na(gene_list_6575)],]
+expmatrix_6575 <- exprs_6575[gene_list_6575[!is.na(gene_list_6575)],]
 expmatrix_cor_6575<-cor(t(expmatrix_6575))
 expmatrix_dist_6575<-as.dist(1-expmatrix_cor_6575)
 
 # cluster
 expmatrix_hclust_6575<-hclust(
-    expmatrix_dist_25507, method="ave"
+    expmatrix_dist_6575, method="ave"
 )
 
-expmatrix_hclust_groups_25507 = cutree(
-    expmatrix_hclust_25507, k=2
+expmatrix_hclust_groups_6575 = cutree(
+    expmatrix_hclust_6575, k=3
 )
 
 names(
-    which(expmatrix_hclust_groups_25507==1)
-) ->group1_hclust_25507
+    which(expmatrix_hclust_groups_6575==1)
+) ->group1_hclust_6575
 
 names(
-    which(expmatrix_hclust_groups_25507==2)
-) ->group2_hclust_25507
+    which(expmatrix_hclust_groups_6575==2)
+) ->group2_hclust_6575
 #pdf("boxplot1_25507.pdf")
-boxplot(pair_25507@means[group1_hclust_25507,])
+boxplot(pair_25507@means[group1_hclust_6575,])
 #dev.off()
 #pdf("boxplot2_25507.pdf")
-boxplot(pair_25507@means[group2_hclust_25507,])
+boxplot(pair_25507@means[group2_hclust_6575,])
 #dev.off()
 #silhoutte plot
 sil_25507 <- silhouette(expmatrix_hclust_groups_25507, dist=expmatrix_dist_25507)
@@ -242,31 +244,31 @@ sig_genes_bfn_eid_7329 <- unlist(mget(EID_7329_bfn, org.Hs.egENSEMBL2EG))
 sig_genes_names <- unlist(mget(sig_genes_6575, hgu133plus2GENENAME))
 
 # clustering/create heat plot
-expmatrix_7329 <- exprs_geo_7329[[!is.na(gene_list_7329)],]
+expmatrix_7329 <- exprs_geo_7329[(gene_names_7329_bfn[!is.na(gene_names_7329_bfn)]),]
 expmatrix_cor_7329 <- cor(t(expmatrix_7329))
-expmatrix_dist_25507<-as.dist(1-expmatrix_cor_25507)
+expmatrix_dist_7329<-as.dist(1-expmatrix_cor_7329)
 
 # cluster
-expmatrix_hclust_25507<-hclust(
-    expmatrix_dist_25507, method="ave"
+expmatrix_hclust_7329<-hclust(
+    expmatrix_dist_7329, method="ave"
 )
 
-expmatrix_hclust_groups_25507 = cutree(
-    expmatrix_hclust_25507, k=2
+expmatrix_hclust_groups_7329 = cutree(
+    expmatrix_hclust_7329, k=2
 )
 
 names(
-    which(expmatrix_hclust_groups_25507==1)
-) ->group1_hclust_25507
+    which(expmatrix_hclust_groups_7329==1)
+) ->group1_hclust_7329
 
 names(
-    which(expmatrix_hclust_groups_25507==2)
-) ->group2_hclust_25507
+    which(expmatrix_hclust_groups_7329==2)
+) ->group2_hclust_7329
 #pdf("boxplot1_25507.pdf")
-boxplot(pair_25507@means[group1_hclust_25507,])
+boxplot(pair_7329@means[group1_hclust_7329,])
 #dev.off()
 #pdf("boxplot2_25507.pdf")
-boxplot(pair_25507@means[group2_hclust_25507,])
+boxplot(pair_7329@means[group2_hclust_7329,])
 #dev.off()
 #silhoutte plot
 sil_25507 <- silhouette(expmatrix_hclust_groups_25507, dist=expmatrix_dist_25507)
